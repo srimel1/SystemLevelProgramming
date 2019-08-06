@@ -1,0 +1,16 @@
+Tue Jul  9 16:50:19 EDT 2019
+color
+color.sh
+date.txt
+here.sh
+nonprime.sh
+nonprime.sh.save
+out.txt
+prime1.sh
+prime2.sh
+pwd.txt
+rotatelog
+t1
+t2
+users.sh
+/home/srimel1/scripts

@@ -1,0 +1,194 @@
+#include <stdio.h>
+#include <fcntl.h>
+#include <stdlib.h>
+
+/*Enumerator*/
+enum{ FALSE, TRUE }; /* Standard false and true values */
+enum{ STDIN, STDOUT, STDERR }; /* Standard I/O channel indicies */
+
+/* #define Statements */
+#define BUFFER_SIZE 4096 /* Copy buffer size */
+#define NAME_SIZE 12
+#define MAX_LINES 100000 /*  Max lines in file */
+
+/* Function Prototypes */
+void parseCommandLine(int argc, char* argv[]);
+void processOptions(char* str);
+void usageError();
+void pass1();
+void trackLines(char* buffer, int charsRead);
+void pass2();
+void processLine(int i);
+void reverseLine(char* buffer, int size);
+void fatalError();
+
+/* Globals */ 
+char *fileName = NULL; /* Points to file name */
+char tmpName[NAME_SIZE]; /* Set to tue if -c option is used */
+int charOption = FALSE; /* Set to true if reading stdin */
+int standardInput = FALSE; /* Set to tue if reading stdin */
+int lineCount = 0; /* Total number of lines in input */
+int lineStart[MAX_LINES]; /* Store offsets of each line */
+int fileOffset = 0; /* Current position in inut */
+int fd; /* File descriptor of input */ 
+/********************************************************************/
+
+
+
+int main(int argc, char *argv[])
+{
+  parseCommandLine(argc, argv); /* Parse cmd line */
+  pass1(); /* Perform first pass through input */
+  pass2(); /* Perform second pass through input */
+  return(/* EXITSUCCESS */ 0); /* DONE */
+    
+}
+void parseCommandLine(int argc, char* argv[])
+{
+    /* Parse command line arguments */
+    int i;
+
+    for ( i=1; i< argc; i++)
+    {
+        if(argv[i][0]=='-')
+         processOptions(argv[i]);
+        else if(fileName == NULL)
+         fileName=argv[i];
+         elseusageError(); /* An error occured */
+
+    }
+    standardInput = (fileName == NULL);
+}
+void processOptions(char* str)
+{
+    /* Parse options */
+    int j;
+
+    for(j=1; str[j]!=NULL; j++)
+    {
+        switch(str[j]) /* Switch on command line flag */
+        {
+            case 'c':
+                charOption = TRUE;
+                break;
+            default:
+                usageError();
+                break;
+        }
+    }
+}
+void usageError()
+{
+    fprintf(stderr, "Usage: reverse -c [filename]\n");
+    exit(/* EXITFAILURE */ 1);
+}
+void pass1()
+{
+    /* Perform first scan through file */
+    int tmpfd, charsRead, charsWritten;
+    char buffer[BUFFER_SIZE];
+
+    if(standardInput)/* Read from standard input */
+    {
+        fd = STDIN;
+        sprintf(tmpName, ".rev.%d", getpid());/* Random name */
+        /* Create temporary file to store copy of input */
+        tmpfd = open(tmpName, O_CREAT | O_RDWR, 0600);
+        if(tmpfd == -1) fatalError();
+    }
+    else /* Open named file for reading */
+    {
+        fd = open(fileName, O_RDONLY);
+        if(fd == -1) fatalError();
+    }
+    lineStart[0] = 0; /* Offset of first line */
+
+
+while(TRUE) /* Read all input */
+{
+    /* Fill buffer */
+    charsRead = read(fd, buffer, BUFFER_SIZE);
+    if(charsRead == 0) break; /* EOF */
+    if(charsRead == -1) fatalError(); /* Error */ 
+    trackLines(buffer, charsRead); /* Process line */
+    /* Copy line to temporary file if reading std in */
+    if(standardInput)
+    {
+        charsWritten = write(tmpfd, buffer, charsRead);
+        if(charsWritten != charsRead) fatalError();  
+    }
+}
+/* Store offset of trailing line, if present */
+lineStart[lineCount + 1] = fileOffset;
+
+/* if reading standard input, prepare fd for pass2 */
+if(standardInput){
+fd = tmpfd;
+} 
+}
+void trackLines(char* buffer, int charsRead)
+{
+    /* Store offsets of each line start in buffer */
+    int i; 
+
+    for(i=0; i < charsRead; i++)
+    {
+        ++fileOffset; /* Update current file position */
+        if(buffer[i] == '\n')
+         lineStart[++lineCount] = fileOffset;
+    }
+}
+void pass2()
+{
+    /* Scan input file again, displaying lines in reverse */
+    int i;
+    
+    for(i= lineCount - 1; i>=0; i--)
+     processLine(i);
+
+    close(fd); /* Close input file */
+    if(standardInput)
+     unlink(tmpName); /* Remove temp file that we made */   
+}
+void processLine(int i)
+{
+    /* Read a line and display it*/
+    int charsRead;
+    char buffer[BUFFER_SIZE];
+
+    /* Find the line and read it */
+    lseek(fd, lineStart[i], SEEK_SET);
+    charsRead = read(fd, buffer, lineStart[i+1] - lineStart[i]);
+
+    /* Reverse line if -c option was selected */
+    if(charOption) 
+     reverseLine (buffer, charsRead);
+    /* Write it to standard output */
+    write(1, buffer, charsRead);
+}
+void reverseLine(char* buffer, int size)
+{
+    /* Reverse all the characters in the buffer */
+    int start = 0, end = size - 1;
+    char tmp;
+
+    /* Leave trailing newline */
+    if(buffer[end] == '\n')
+     --end;
+
+    /* Swap characters in a pairwise fashion */
+    while(start<end)
+    {
+        tmp = buffer[start];
+        buffer[start] = buffer[end];
+        buffer[end] = tmp;
+        ++start; /* Increment start index */
+        --end; /* Decrement end index */
+    }
+}
+void fatalError()
+{
+    perror("reverse: "); /* Describe error */
+    exit(1);
+}
+

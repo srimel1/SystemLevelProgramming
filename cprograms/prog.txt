@@ -1,0 +1,7 @@
+hello this is my file
+i am trying to figure
+out how to count the 
+frequency
+of 
+characters in
+the file.

@@ -1,0 +1,5 @@
+#!/bin/sh
+COLOR=yellow
+
+echo This looks $COLORish
+echo This seems ${COLOR}ish
